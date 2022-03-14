@@ -19,8 +19,6 @@
 # limitations under the License.
 # ============================================================================
 
-ANTSPATH='/home/u153881/ANTs/antsbin2.2.0/bin'
-
 [ $# -ge 5 ] || { echo "usage: $(basename "$0") <subject> <age> <atlas_name> [<#jobs>]" 1>&2; exit 1; }
 subj=$1
 type=$2

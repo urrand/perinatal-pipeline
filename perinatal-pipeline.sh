@@ -45,13 +45,12 @@ runpipeline()
 
 ################ Arguments ################
 
-[ $# -ge 5 ] || { usage; }
+[ $# -ge 4 ] || { usage; }
 command=$@
-subject_dir=$1
-type=$2
-gaFile=$3
-fetneo=$4
-atname=$5
+subject=$1
+weeks=$2
+fetneo=$3
+atname=$4
 
 datadir=`pwd`
 threads=1
@@ -59,7 +58,7 @@ minimal=1
 noreorient=0
 cleanup=0
 
-shift; shift; shift; shift; shift;
+shift; shift; shift; shift;
 while [ $# -gt 0 ]; do
   case "$1" in
     -t|-threads)  shift; threads=$1; ;;
@@ -74,51 +73,23 @@ while [ $# -gt 0 ]; do
 done
 
 #dataLine=1
-if [ -f "$subject_dir" ]; then
-files=$subject_dir
-subject_dir="$(dirname $subject_dir)"
-subject_dir="$(dirname $subject_dir)"
-echo $subject_dir
+if [ -f "$subject" ]; then
+files=$subject
+subject_dir="$(dirname $subject)"
+type="$(basename $subject_dir)"
 else
-files=`ls $subject_dir/$type/*.nii.gz`
+files=`ls $subject/*.nii.gz`
+subject_dir=$subject
+type="$(basename $subject)"
 fi
 for eachfile in $files
 do
 
-	###############################################
-	# READ GA Table
-	###############################################
-	# use -A option declares associative array
-	declare -A ga
-
-	INPUT=$gaFile
-	OLDIFS=$IFS
-	IFS=,	
-	[ ! -f $INPUT ] && { echo "$INPUT file not found"; exit 99; }
-	while read id_data fetal_gw neo_gw
-	do
-	if [ $fetneo == 0 ];
-	then
-	ga[$id_data]=$fetal_gw
-	else
-	ga[$id_data]=$neo_gw
-	fi
-	done < $INPUT
-	IFS=$OLDIFS
-	###############################################
-	
-	if [ "$type" == "T1" ] ; 
-	then 
-	T1=$eachfile
-	else
-	T2=$eachfile
-	fi
-	
 	filename="$(basename -- $eachfile)"
 	prefix="final_reconstructed_"
 	filename=${filename#"$prefix"}	
 
-	subj=${filename%".nii.gz"} #$subjectID-$sessionID #impact ${eachfile:29:7} #fetal ${eachfile:47:7} #neonatal ${eachfile:40:6}
+	subj=${filename%".nii.gz"}
 
 	if [ $fetneo == 0 ];
 	then
@@ -136,13 +107,35 @@ do
 
 	if [ "$type" == "T1" ] ; 
 	then 
-	T2=$subject_dir/T2/$subj
+	T1=$eachfile
 	else
-	T1=$subject_dir/T1/$subj
+	T2=$eachfile
 	fi
+
+	###############################################
+	# READ GA Table
+	###############################################
+	# use -A option declares associative array
+	declare -A ga
 	
+	INPUT=$weeks
+	OLDIFS=$IFS
+	IFS=,	
+	if [ -f $ga ]; then
+	while read id_data fetal_gw neo_gw
+	do
+	if [ $fetneo == 0 ];
+	then
+	ga[$id_data]=$fetal_gw
+	else
+	ga[$id_data]=$neo_gw
+	fi
+	done < $INPUT
+	IFS=$OLDIFS
+	###############################################
 	age=`echo ${ga[$index]} | tr '.' ','`
 	echo "Age: " $age
+	fi
 	
 	#let "dataLine=dataLine+1"
 
@@ -193,10 +186,8 @@ do
 	# segmentation
 	runpipeline segmentation $scriptdir/segmentation/pipeline.sh $T $type1 $subj $roundedAge $fetneo $atname -d $workdir -t $threads
 
-	runpipeline additional $scriptdir/misc/pipeline.sh $subj $roundedAge $fetneo $type1 -d $workdir -t $threads
-
 	# surface extraction
-	runpipeline surface $scriptdir/surface/pipeline.sh $subj -d $workdir -t $threads
+	# runpipeline surface $scriptdir/surface/pipeline.sh $subj -d $workdir -t $threads
 
 	# clean-up
 	if [ $cleanup -eq 1 ];then
